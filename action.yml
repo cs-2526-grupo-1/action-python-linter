@@ -1,0 +1,19 @@
+name: 'Clean Code Enforcer'
+description: 'Ensures Python code quality by detecting code smells and style violations.'
+author: 'LaTeX-enjoyers'
+
+runs:
+  using: "composite"
+  steps:
+    - name: Pyhton env Setup
+      uses: actions/setup-python@v5
+      with:
+        python-version: '3.10'
+
+    - name: Install Linter (Flake8)
+      shell: bash
+      run: pip install flake8
+
+    - name: Perform Static Analysis
+      shell: bash
+      run: flake8 . --count --show-source --statistics
