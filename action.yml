@@ -1,11 +1,20 @@
-name: 'Clean Code Enforcer'
-description: 'Ensures Python code quality by detecting code smells and style violations.'
+name: 'Code-Shamer (Clean Code Enforcer)'
+description: 'Ensures Python code quality by detecting code smells and style violations. Also publicly shames the perpetrator for their cirmes against Clean Code'
 author: 'LaTeX-enjoyers'
+
+# Defining inputs to solve the "Unrecognized named-value: secrets" error
+inputs:
+  telegram_token:
+    description: 'Telegram Bot Token'
+    required: true
+  telegram_chat_id:
+    description: 'Telegram Chat ID'
+    required: true
 
 runs:
   using: "composite"
   steps:
-    - name: Pyhton env Setup
+    - name: Python env Setup
       uses: actions/setup-python@v5
       with:
         python-version: '3.10'
@@ -16,4 +25,24 @@ runs:
 
     - name: Perform Static Analysis
       shell: bash
-      run: flake8 . --count --show-source --statistics
+      # We capture the output and the exit code to allow the next step to run on failure
+      run: |
+        flake8 . --count --max-complexity=10 --statistics --show-source > flake8_output.txt || LINTER_EXIT_CODE=$?
+        cat flake8_output.txt
+        if [ -n "$LINTER_EXIT_CODE" ]; then exit $LINTER_EXIT_CODE; fi
+
+    - name: Shaming Time
+      # Only executed if Linter fails
+      if: failure() 
+      shell: bash
+      run: |
+        # Only read the first 15 lines of the error log to ensure we respect TG's char limit (4096)
+        # We also escape underscores to avoid breaking Telegram Markdown
+        ERRORS=$(head -n 15 flake8_output.txt | sed 's/_/\\_/g')
+        
+        # Send the message w the error code block
+        # Inputs instead of secrets. Secrets need to be defined in recipient repo
+        curl -s -X POST https://api.telegram.org/bot${{ inputs.telegram_token }}/sendMessage \
+          -d chat_id=${{ inputs.telegram_chat_id }} \
+          -d parse_mode="Markdown" \
+          -d text="*SIMIO DETECTADO* %0A%0AParece que *${{ github.actor }}* no prestó demasiada atención en las clases de Calidad del Software... %0A%0A *Errores detectados:*%0A\`\`\`%0A$ERRORS%0A\`\`\`%0A%0A"
