@@ -22,14 +22,28 @@ runs:
     - name: Install Linter (Flake8)
       shell: bash
       run: pip install flake8
-
+    
     - name: Perform Static Analysis
       shell: bash
-      # We capture the output and the exit code to allow the next step to run on failure
       run: |
-        flake8 . --count --max-complexity=10 --statistics --show-source > flake8_output.txt || LINTER_EXIT_CODE=$?
+        # Strict mode off
+        set +e 
+        
+        flake8 . --count --max-complexity=10 --statistics --show-source > flake8_output.txt
+        
+        # Capture error code
+        LINTER_EXIT_CODE=$?
+        
+        # Strict mode back on
+        set -e 
+        
+        # show erro log through console
         cat flake8_output.txt
-        if [ -n "$LINTER_EXIT_CODE" ]; then exit $LINTER_EXIT_CODE; fi
+        
+        if [ $LINTER_EXIT_CODE -ne 0 ]; then
+          echo "Flake8 ha detectado código sucio. Forzando el fallo del paso..."
+          exit $LINTER_EXIT_CODE
+        fi
 
     - name: Shaming Time
       # Only executed if Linter fails
